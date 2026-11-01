@@ -1,0 +1,33 @@
+
+# Environment dan credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.passwd
+passwd
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Node.js
+node_modules/
+dist/
+.vite/
+
+# Build dan cache
+.cache/
+coverage/
+*.log
+
+# OS dan editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
