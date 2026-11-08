@@ -1,0 +1,9 @@
+/* Tailwind v4 TANPA preflight: reset bawaan Tailwind akan mengubah tampilan prototipe
+   (margin <p>, ukuran font, gaya tombol/input). Hanya theme dan utilities yang dimuat. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* CSS prototipe (apa adanya) + tambahan kecil untuk elemen yang tidak ada di prototipe */
+@import "./prototype.css";
+@import "./extra.css";

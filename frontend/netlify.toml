@@ -1,0 +1,10 @@
+# Netlify: set "Base directory" = frontend pada pengaturan situs.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# SPA: semua path diarahkan ke index.html agar refresh pada /energi, /jadwal, dst. tidak 404.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
