@@ -31,7 +31,7 @@ Perintah lain: `npm run typecheck` (periksa tipe), `npm run build` (hasil di `di
 Jika `npm install` mengeluh soal versi paket, jalankan `npm install --legacy-peer-deps` dan kabari saya pesan errornya.
 
 ## 3. Prasyarat di Supabase (sekali saja)
-1. Jalankan migrasi dan seed: `npx supabase db push`, lalu `seed.sql` di SQL Editor.
+1. Jalankan migrasi (`0001` sampai `0005`) dan seed: `npx supabase db push`, lalu `seed.sql` di SQL Editor. Migrasi `0005` mengubah ruang U-203 menjadi **U-203**, menambah tabel mata kuliah, memindahkan pengaturan AC ke tabel ruang, dan **menghapus jadwal lama** (data uji).
 2. Authentication > Providers: matikan signup publik. Buat user (admin, operator, bridge) di Authentication > Users.
 3. Aktifkan profil di SQL Editor (profil dibuat otomatis dengan `is_active = false`; tanpa ini login ditolak dengan pesan "Akun belum diaktifkan"):
 ```sql
@@ -73,7 +73,7 @@ Semua ditandai komentar `>>> UBAH MANUAL` di kodenya. Daftar lengkap:
 | 5 | `src/types/database.ts` | Tipe baris; opsional ganti dengan `npx supabase gen types typescript --linked` | Bila skema berubah |
 | 6 | `src/data/commands.ts` | Payload perintah (`{action: "lock" \| "unlock"}`); tambahkan tipe `light`/`ac` bila dipakai | Bila kontrak MQTT berubah |
 | 7 | `src/data/occupancy.ts` | Teks nama model pada tabel Okupansi (kini `model_name` dari `cv_models`) | Opsional |
-| 8 | `src/lib/schedule.ts` | `DAY_OPTIONS` (pilihan hari) dan `POUCH_ITEMS` (**harus sama** dengan enum `pouch_item`) | Bila pilihan berubah |
+| 8 | `src/lib/schedule.ts` | `HARI` (Senin sampai Sabtu; tambah Minggu bila perlu) dan `POUCH_ITEMS` (**harus sama** dengan enum `pouch_item`) | Bila pilihan berubah |
 | 9 | `src/components/Sidebar.tsx` | `TABS` (menu) dan `NODE_GROUPS` (Node 1 = node1cv + node1ir) | Bila menu/Node berubah |
 | 10 | `src/pages/Energy.tsx` | `FREQ_OK` (batas frekuensi "Stabil") | Opsional |
 | 11 | `src/hooks/useAuth.tsx` | Pesan akun belum aktif | Opsional |
@@ -87,21 +87,21 @@ Semua ditandai komentar `>>> UBAH MANUAL` di kodenya. Daftar lengkap:
 ```sql
 insert into node_status (room_id,node,online,last_seen)
   select r.room_id, n, true, now() from rooms r, unnest(array['node1cv','node1ir','node2','node3']) n
-  where r.room_code='A-203' on conflict (room_id,node) do update set online=true, last_seen=now();
+  where r.room_code='U-203' on conflict (room_id,node) do update set online=true, last_seen=now();
 insert into occupancy (room_id,model_id,detected_at,person_count,occupied,inference_fps,processing_ms)
-  select r.room_id,(select model_id from cv_models limit 1),now(),24,true,9.5,105 from rooms r where r.room_code='A-203';
+  select r.room_id,(select model_id from cv_models limit 1),now(),24,true,9.5,105 from rooms r where r.room_code='U-203';
 insert into env_read (room_id,measured_at,temperature_c,humidity_rh)
-  select room_id, now(), 24.2, 60 from rooms where room_code='A-203';
+  select room_id, now(), 24.2, 60 from rooms where room_code='U-203';
 insert into energy_read (room_id,measured_at,voltage_v,current_a,active_power_w,energy_kwh,frequency_hz,power_factor)
-  select room_id, now(), 220, 5.7, 1250, 12.3, 50, 0.98 from rooms where room_code='A-203';
+  select room_id, now(), 220, 5.7, 1250, 12.3, 50, 0.98 from rooms where room_code='U-203';
 insert into device_state (room_id,key,value)
-  select room_id,'door','{"locked":true,"door_closed":true}'::jsonb from rooms where room_code='A-203'
+  select room_id,'door','{"locked":true,"door_closed":true}'::jsonb from rooms where room_code='U-203'
   on conflict (room_id,key) do update set value=excluded.value, updated_at=now();
 ```
    Kartu Dashboard terisi. Energi per jam baru bermakna bila ada minimal dua pembacaan (selisih kumulatif).
 5. Dengan bridge + broker berjalan, data yang sama bisa dikirim lewat `mosquitto_pub` (lihat panduan Pi) dan dashboard ikut berubah tanpa refresh (Realtime).
 6. Tombol **Buka Pintu** membuat baris di `commands`. Tanpa bridge/Node 2, tombol menunggu lalu menampilkan "Perintah gagal: …" (bridge menandai `tanpa ack` setelah 15 detik; frontend berhenti menunggu pada `commandTimeoutMs`).
-7. Jadwal: simpan satu jadwal, lalu cek `select * from commands where type='schedule'` (dibuat otomatis oleh trigger) dan `audit_log` (admin).
+7. Ruang dan jadwal: tambah ruang (mis. U-204); atur AC ruang (ON/OFF, setpoint, hari); tambah dua mata kuliah pada hari yang sama dengan jam berurutan, lalu coba satu yang bentrok (harus ditolak). Cek `select type, status from commands order by id desc limit 5;` (perintah `schedule` dan `ac_config` dibuat oleh trigger) dan `audit_log` (admin).
 8. Login sebagai operator: menu **Audit** tidak muncul pada Riwayat dan tombol **Hapus** jadwal tidak ada.
 
 ## 7. Deploy ke Netlify
@@ -116,12 +116,13 @@ insert into device_state (room_id,key,value)
 |---|---|
 | `lib/supabase.ts` | `supabase` (klien), `unwrap()` mengubah respons menjadi data atau Error |
 | `lib/time.ts` | `todayLocal`, `addDays`, `isoDow`, `minutesNow`, `fmtClock`, `fmtDateLong`, `parseLocal`, `hourRange`, `weekRange`, `monthLabel`, `agoText` (semua memakai zona `CONFIG.timeZone`) |
-| `lib/activeSchedule.ts` | `pickActiveSchedule()` jadwal yang berlaku hari ini (dipakai kartu Setpoint dan "Jadwal ruang") |
-| `data/rooms.ts` | `fetchRooms()` |
+| `lib/activeSchedule.ts` | `kelasHariIni()` mata kuliah yang sedang berlangsung, berikutnya, dan seluruh jadwal hari ini (kartu "Jadwal ruang") |
+| `data/rooms.ts` | `fetchRooms()` (termasuk pengaturan AC), `addRoom()` (operator boleh menambah ruang), `saveRoomAc()` |
+| `data/courses.ts` | `fetchCourses()`, `ensureCourse()` (membuat mata kuliah bila belum ada) |
 | `data/latest.ts` | `fetchRoomLatest()` (kartu Dashboard), `fetchNodeHealth()` (sidebar) |
 | `data/energy.ts` | `fetchEnergy(room, period)`, `fetchEnergyChart(room)` |
 | `data/occupancy.ts` | `fetchOccupancyHourly`, `fetchLatestOccupancy`, `fetchActiveModelName` |
-| `data/schedules.ts` | `fetchSchedules`, `saveSchedule` (insert/update), `setScheduleActive`, `deleteSchedule` (admin) |
+| `data/schedules.ts` | `fetchSchedules` (dengan nama mata kuliah), `saveSchedule` (insert/update; pesan bentrok dibuat ramah), `setScheduleActive`, `deleteSchedule` (admin) |
 | `data/commands.ts` | `sendDoorCommand()` menulis ke `commands`; `waitCommand()` polling status sampai selesai/gagal |
 | `data/history.ts` | `fetchHistory()` menggabungkan occupancy, energy_read, schedules, dan audit_log (admin) |
 | `hooks/useAuth.tsx` | Login/logout, muat profil dan role, blokir akun nonaktif |
@@ -143,7 +144,7 @@ Perbedaan yang disengaja (karena data kini nyata):
 - Teks "simulasi" diganti: label sidebar, badge Jadwal ("Tersambung ke database"), tombol "Muat ulang", catatan kaki, dan catatan validasi.
 - Status Node di sidebar dinamis; Node 1 dianggap ONLINE bila Node 1 CV dan Node 1 IR hidup (SEBAGIAN bila hanya satu).
 - Tombol pintu mengirim perintah ke Node dan berubah setelah Node mengonfirmasi (bukan beralih seketika).
-- "Jadwal tersimpan" menampilkan semua jadwal ruang, dengan tombol Ubah, Nonaktifkan, dan Hapus (khusus Administrator).
+- Halaman **Jadwal Kelas** disusun ulang menjadi tiga bagian: pilih atau tambah ruang, pengaturan AC ruang (sekali per ruang), dan jadwal mata kuliah per hari (dropdown Senin sampai Sabtu; beberapa mata kuliah per hari selama tidak bentrok). Isian yang diminta adalah **nama mata kuliah**, bukan nama ruang.
 - Riwayat: pilihan **Audit** khusus Administrator. Data prototipe ruang B-105 dan sensor DHT22 dihapus (sensor yang dipakai SHT31).
 - Data lebih tua dari 90 detik ditandai "Data kedaluwarsa" dan tidak ditampilkan sebagai kondisi terbaru (WEB-BB-06).
 

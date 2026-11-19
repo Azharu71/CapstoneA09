@@ -1,15 +1,15 @@
 import type { Schedule } from "../types/database";
+import { toMin } from "./schedule";
 import { isoDow, minutesNow, todayLocal } from "./time";
 
-const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
-
-/** Jadwal aktif untuk hari ini: yang sedang berlangsung, atau yang pertama hari ini; null bila tidak ada. */
-export function pickActiveSchedule(list: Schedule[], now: Date = new Date()): Schedule | null {
+/** Kelas hari ini: yang sedang berlangsung, yang berikutnya, dan seluruh jadwal aktif hari ini. */
+export function kelasHariIni(list: Schedule[], now: Date = new Date()) {
   const dow = isoDow(todayLocal(now));
-  const today = list
-    .filter((s) => s.is_active && s.days_of_week.includes(dow))
-    .sort((a, b) => a.start_time.localeCompare(b.start_time));
-  if (!today.length) return null;
   const m = minutesNow(now);
-  return today.find((s) => m >= toMin(s.start_time) && m <= toMin(s.end_time)) ?? today[0];
+  const hariIni = list
+    .filter((s) => s.is_active && s.day_of_week === dow)
+    .sort((a, b) => a.start_time.localeCompare(b.start_time));
+  const sedang = hariIni.find((s) => m >= toMin(s.start_time) && m < toMin(s.end_time)) ?? null;
+  const berikut = hariIni.find((s) => toMin(s.start_time) > m) ?? null;
+  return { hariIni, sedang, berikut };
 }

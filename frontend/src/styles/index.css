@@ -1,9 +1,35 @@
-/* Tailwind v4 TANPA preflight: reset bawaan Tailwind akan mengubah tampilan prototipe
-   (margin <p>, ukuran font, gaya tombol/input). Hanya theme dan utilities yang dimuat. */
-@layer theme, base, components, utilities;
-@import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/utilities.css" layer(utilities);
+@import "tailwindcss";
 
-/* CSS prototipe (apa adanya) + tambahan kecil untuk elemen yang tidak ada di prototipe */
-@import "./prototype.css";
-@import "./extra.css";
+@theme {
+  --color-navy: #14243a;
+  --color-blue: #3979e0;
+  --color-teal: #168873;
+  --color-ink: #213148;
+  --color-muted: #6d7d91;
+  --color-line: #dce4ee;
+  --color-bg: #f4f7fb;
+  --color-warn: #c98420;
+}
+
+:root {
+  --navy: #14243a;
+  --blue: #3979e0;
+  --teal: #168873;
+  --ink: #213148;
+  --muted: #6d7d91;
+  --line: #dce4ee;
+  --bg: #f4f7fb;
+  --white: #fff;
+  --warn: #c98420;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, Segoe UI, Arial, sans-serif;
+  background-color: var(--bg);
+  color: var(--ink);
+}

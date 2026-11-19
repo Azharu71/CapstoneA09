@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 // >>> UBAH MANUAL (wajib): isi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY pada berkas .env
 // (lokal) dan di Netlify > Site settings > Environment variables. Lihat .env.example.
 const url = import.meta.env.VITE_SUPABASE_URL;
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!url || !anonKey) {
   throw new Error("VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY belum diisi. Salin .env.example menjadi .env.");
@@ -11,7 +11,11 @@ if (!url || !anonKey) {
 
 // Hanya anon key. Keamanan data ditegakkan oleh Row Level Security di database (0002_rls.sql).
 export const supabase = createClient(url, anonKey, {
-  auth: { persistSession: true, autoRefreshToken: true },
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
 });
 
 /** Mengubah respons PostgREST menjadi data, atau melempar Error berisi pesan dari database. */

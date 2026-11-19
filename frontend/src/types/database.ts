@@ -5,7 +5,15 @@
 export type UserRole = "admin" | "operator";
 
 export interface Profile { id: string; name: string; role: UserRole; is_active: boolean }
-export interface Room { room_id: number; room_code: string; room_name: string; capacity: number }
+export interface Room {
+  room_id: number; room_code: string; room_name: string; capacity: number;
+  // Pengaturan AC: ditetapkan SEKALI per ruang (bukan per jadwal)
+  ac_on_time: string; ac_off_time: string; ac_setpoint_c: number; ac_days: number[];
+}
+export interface NewRoomInput { room_code: string; room_name: string; capacity: number }
+export interface RoomAcInput { ac_on_time: string; ac_off_time: string; ac_setpoint_c: number; ac_days: number[] }
+
+export interface Course { course_id: number; course_code: string | null; course_name: string }
 
 export interface DoorState { ts?: string; locked: boolean; door_closed: boolean }
 
@@ -24,6 +32,11 @@ export interface EnergyBucket {
   voltage_v: number; current_a: number; frequency_hz: number; active_power_w: number; energy_kwh: number; samples: number;
 }
 
+export interface EnergyReadRow {
+  reading_id: number; room_id: number; measured_at: string;
+  voltage_v: number; current_a: number; frequency_hz: number; active_power_w: number; energy_kwh: number; power_factor: number | null;
+}
+
 export interface OccupancyBucket {
   room_id: number; bucket_local: string;
   avg_count: number; max_count: number; occupied: boolean; avg_fps: number | null; samples: number;
@@ -34,15 +47,17 @@ export interface OccupancyRow {
   inference_fps: number | null; processing_ms: number | null;
 }
 
+// Satu baris = satu mata kuliah pada satu hari di satu ruang.
 export interface Schedule {
-  schedule_id: number; room_id: number; created_by: string | null;
-  days_of_week: number[]; start_time: string; end_time: string; ac_on_time: string; ac_off_time: string;
-  setpoint_c: number; pouch: string[]; is_active: boolean; created_at: string; updated_at: string;
+  schedule_id: number; room_id: number; course_id: number; day_of_week: number;
+  start_time: string; end_time: string; pouch: string[]; is_active: boolean;
+  created_by: string | null; created_at: string; updated_at: string;
+  courses: Course | null;
 }
 
 export interface ScheduleInput {
-  room_id: number; days_of_week: number[]; start_time: string; end_time: string;
-  ac_on_time: string; ac_off_time: string; setpoint_c: number; pouch: string[];
+  room_id: number; course_id: number; day_of_week: number;
+  start_time: string; end_time: string; pouch: string[];
 }
 
 export type CommandStatus = "pending" | "sent" | "done" | "failed";

@@ -4,7 +4,7 @@ import { CONFIG } from "../lib/config";
 /** Grafik "Tren konsumsi energi" (pengganti SVG statis prototipe). Warna dan ukuran mengikuti prototipe. */
 export default function EnergyTrendChart({ data }: { data: { hour: number; kwh: number | null }[] }) {
   return (
-    <div className="chart">
+    <div className="w-full h-[214px] block mt-4">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 12, right: 12, bottom: 0, left: 12 }}>
           <CartesianGrid vertical={false} stroke="#e8edf4" />

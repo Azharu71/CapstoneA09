@@ -14,8 +14,8 @@ export const CONFIG = {
   comfortRange: { min: 22.8, max: 25.8 },
 
   // Rentang setpoint AC yang diterima formulir jadwal (prototipe: 16-30).
-  // >>> UBAH MANUAL: harus sama dengan CHECK pada kolom schedules.setpoint_c di database.
-  setpointRange: { min: 16, max: 30 },
+  // >>> UBAH MANUAL: harus sama dengan CHECK pada kolom rooms.ac_setpoint_c di database.
+  setpointRange: { min: 18, max: 30 },
 
   // Jam yang tampil pada grafik tren energi di Dashboard (prototipe: 06 sampai 17).
   chartHours: { from: 6, to: 17 },
@@ -25,6 +25,6 @@ export const CONFIG = {
   // >>> UBAH MANUAL: sebaiknya sedikit di atas ACK_TIMEOUT_S bridge (15 detik).
   commandTimeoutMs: 20000,
 
-  // Jumlah baris pada tabel Riwayat.
-  historyLimit: 15,
+  // Jumlah baris per sumber pada log Riwayat.
+  historyLimit: 60,
 };

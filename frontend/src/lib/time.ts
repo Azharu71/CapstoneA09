@@ -34,13 +34,19 @@ export function fmtClock(iso: string): string {
   return new Intl.DateTimeFormat("en-GB", { timeZone: CONFIG.timeZone, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date(iso));
 }
 
-/** Tanggal pendek + jam dari timestamp ISO, mis. "05 Nov 10:42". */
-export function fmtDateTime(iso: string): string {
+/** Tanggal + jam dari timestamp ISO, mis. "05 Nov 2026 10:42:18". */
+export function fmtDateTime(iso: string, withSeconds = true): string {
   const d = new Date(iso);
   const date = new Intl.DateTimeFormat("en-CA", { timeZone: CONFIG.timeZone }).format(d);
-  const [, mo, da] = date.split("-").map(Number);
-  const hm = new Intl.DateTimeFormat("en-GB", { timeZone: CONFIG.timeZone, hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
-  return `${pad(da)} ${MONTHS_SHORT[mo - 1]} ${hm}`;
+  const [y, mo, da] = date.split("-").map(Number);
+  const clock = new Intl.DateTimeFormat("en-GB", {
+    timeZone: CONFIG.timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    ...(withSeconds ? { second: "2-digit" } : {}),
+    hour12: false,
+  }).format(d);
+  return `${pad(da)} ${MONTHS_SHORT[mo - 1]} ${y} ${clock}`;
 }
 
 /** Tanggal panjang gaya prototipe: "Minggu, 11 Oktober 2026". */
@@ -88,12 +94,6 @@ export function weekRange(bucket: string): string {
 export function monthLabel(bucket: string): string {
   const { y, mo } = parseLocal(bucket);
   return `${MONTHS_FULL[mo - 1]} ${y}`;
-}
-
-/** "08 Nov 2026, 14:00 – 15:00" dari bucket jam untuk rentang kustom. */
-export function customBucketRange(bucket: string): string {
-  const { y, mo, d, h } = parseLocal(bucket);
-  return `${pad(d)} ${MONTHS_SHORT[mo - 1]} ${y}, ${pad(h)}:00 – ${pad((h + 1) % 24)}:00`;
 }
 
 /** "baru saja", "12 dtk lalu", "3 mnt lalu", "2 jam lalu". */

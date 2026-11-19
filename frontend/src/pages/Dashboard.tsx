@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import EnergyTrendChart from "../components/EnergyTrendChart";
 import { sendDoorCommand, waitCommand } from "../data/commands";
@@ -11,7 +11,7 @@ import { useNow } from "../hooks/useNow";
 import { useQuery } from "../hooks/useQuery";
 import { useRealtime } from "../hooks/useRealtime";
 import { useRoom } from "../hooks/useRoom";
-import { pickActiveSchedule } from "../lib/activeSchedule";
+import { kelasHariIni } from "../lib/activeSchedule";
 import { CONFIG } from "../lib/config";
 import { hhmm } from "../lib/schedule";
 import { agoText, fmtClock, fmtDateLong } from "../lib/time";
@@ -23,22 +23,34 @@ export default function Dashboard() {
   const nav = useNavigate();
   const { profile } = useAuth();
   const { rooms, room, setRoomId } = useRoom();
+  const roomId = room.room_id;
   const now = useNow(5000);
 
-  const latest = useQuery(() => fetchRoomLatest(room.room_id), [room.room_id]);
-  const chart = useQuery(() => fetchEnergyChart(room.room_id), [room.room_id]);
-  const sched = useQuery(() => fetchSchedules(room.room_id), [room.room_id]);
-  const recent = useQuery(() => fetchHistory(room.room_id, room.room_code, false), [room.room_id]);
-  useRealtime(["occupancy", "energy_read", "env_read", "device_state"], room.room_id, () => {
-    void latest.reload(); void chart.reload(); void recent.reload();
+  const latest = useQuery(() => fetchRoomLatest(roomId), [roomId]);
+  const chart = useQuery(() => fetchEnergyChart(roomId), [roomId]);
+  const sched = useQuery(() => fetchSchedules(roomId), [roomId]);
+  const recent = useQuery(() => fetchHistory(roomId, room.room_code, false), [roomId]);
+
+  // Hanya subscribe ke tabel yang benar-benar butuh respons instan (< 2 detik)
+  useRealtime(["device_state", "node_status", "commands"], roomId, () => {
+    void latest.reload();
   });
+
+  // Untuk grafik/angka sensor (occupancy, suhu, daya), cukup fetch ulang tiap 20 detik
+  useEffect(() => {
+    const interval = setInterval(() => {
+      void latest.reload();
+      void chart.reload();
+    }, 20000);
+    return () => clearInterval(interval);
+  }, [roomId]);
 
   const [pending, setPending] = useState(false);
   const [cmdError, setCmdError] = useState<string | null>(null);
 
   const L = latest.data;
   const stale = (iso?: string | null) => !iso || (now - Date.parse(iso)) / 1000 > CONFIG.staleSeconds;
-  const active = pickActiveSchedule(sched.data ?? []);
+  const kelas = kelasHariIni(sched.data ?? []);
 
   // ---- Okupansi ----
   const occStale = stale(L?.occupancy_at);
@@ -54,7 +66,7 @@ export default function Dashboard() {
   const tempText = t == null ? "—" : `${t.toFixed(1)} °C`;
   const tempStatus = t == null ? "Belum ada data" : envStale ? "Data kedaluwarsa" : comfy ? "Optimal" : t > CONFIG.comfortRange.max ? "Di atas zona nyaman" : "Di bawah zona nyaman";
   const tempColor = tempStatus === "Optimal" ? "var(--teal)" : tempStatus === "Belum ada data" ? GREY : AMBER;
-  const setpointText = active ? `${Number(active.setpoint_c).toFixed(1)} °C` : "—";
+  const setpointText = `${Number(room.ac_setpoint_c).toFixed(1)} °C`;   // pengaturan AC ruang (sekali per ruang)
 
   // ---- Daya ----
   const powerText = L?.active_power_w == null ? "—" : `${(L.active_power_w / 1000).toFixed(2)} kW`;
@@ -93,45 +105,47 @@ export default function Dashboard() {
   const err = latest.error ?? chart.error ?? sched.error ?? recent.error;
 
   return (
-    <section id="dashboard" className="tabscreen active">
-      <div className="rowhead">
+    <section id="dashboard" className="block">
+      <div className="flex flex-wrap justify-between items-end gap-[14px] mb-4">
         <div>
-          <h2>Ringkasan kondisi ruang</h2>
-          <div className="muted">Ruang: <span id="dashRoomLabel">{room.room_name}</span> • {fmtDateLong(new Date(now))}</div>
+          <h2 className="text-[19px] font-bold text-ink m-0 mb-[5px]">Ringkasan kondisi ruang</h2>
+          <div className="text-xs text-muted">Ruang: <span id="dashRoomLabel" className="font-semibold text-ink">{room.room_name}</span> • {fmtDateLong(new Date(now))}</div>
         </div>
-        <div className="toolbar">
-          <select id="dashRoom" aria-label="Pilih Ruangan Kelas" value={room.room_id} onChange={(e) => setRoomId(Number(e.target.value))}>
+        <div className="flex items-center gap-2 flex-wrap">
+          <select id="dashRoom" aria-label="Pilih Ruangan Kelas" value={room.room_id} onChange={(e) => setRoomId(Number(e.target.value))} className="border border-[#ccd6e3] bg-white rounded-lg py-[9px] px-[11px] text-xs text-ink cursor-pointer">
             {rooms.map((r) => <option key={r.room_id} value={r.room_id}>{r.room_name}</option>)}
           </select>
         </div>
       </div>
-      {err && <div className="notice">Gagal memuat sebagian data: {err}</div>}
+      {err && <div className="bg-[#fff5e5] text-[#815414] p-[12px_14px] rounded-[10px] text-xs my-3">Gagal memuat sebagian data: {err}</div>}
 
-      <div className="cards">
-        <div className="card">
-          <div className="cardlabel">OKUPANSI</div>
-          <div className="big">{occText}</div>
-          <div className="strong" style={{ color: occColor }}>{occStatus}</div>
-          <div className="sub">{occSub}</div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-[14px] mb-4">
+        <div className="bg-white border border-line rounded-[14px] p-[19px] shadow-[0_3px_10px_#1a31500a]">
+          <div className="text-[10px] font-extrabold text-muted tracking-[0.5px] uppercase">OKUPANSI</div>
+          <div className="text-2xl md:text-[29px] font-extrabold my-[12px] mb-[7px] text-ink">{occText}</div>
+          <div className="font-bold text-xs" style={{ color: occColor }}>{occStatus}</div>
+          <div className="text-[11px] text-muted mt-1">{occSub}</div>
         </div>
-        <div className="card">
-          <div className="cardlabel">SUHU RUANGAN</div>
-          <div className="big">{tempText}</div>
-          <div className="strong" style={{ color: tempColor }}>{tempStatus}</div>
-          <div className="sub">Setpoint {setpointText}</div>
+        <div className="bg-white border border-line rounded-[14px] p-[19px] shadow-[0_3px_10px_#1a31500a]">
+          <div className="text-[10px] font-extrabold text-muted tracking-[0.5px] uppercase">SUHU RUANGAN</div>
+          <div className="text-2xl md:text-[29px] font-extrabold my-[12px] mb-[7px] text-ink">{tempText}</div>
+          <div className="font-bold text-xs" style={{ color: tempColor }}>{tempStatus}</div>
+          <div className="text-[11px] text-muted mt-1">Setpoint {setpointText}</div>
         </div>
-        <div className="card">
-          <div className="cardlabel">DAYA AKTIF</div>
-          <div className="big">{powerText}</div>
-          <div style={{ color: "#7962cc" }} className="strong">{powerStatus}</div>
-          <div className="sub">Subsistem energi • {agoText(L?.power_at, now)}</div>
+        <div className="bg-white border border-line rounded-[14px] p-[19px] shadow-[0_3px_10px_#1a31500a]">
+          <div className="text-[10px] font-extrabold text-muted tracking-[0.5px] uppercase">DAYA AKTIF</div>
+          <div className="text-2xl md:text-[29px] font-extrabold my-[12px] mb-[7px] text-ink">{powerText}</div>
+          <div style={{ color: "#7962cc" }} className="font-bold text-xs">{powerStatus}</div>
+          <div className="text-[11px] text-muted mt-1">Subsistem energi • {agoText(L?.power_at, now)}</div>
         </div>
-        <div className="card">
-          <div className="cardlabel">STATUS PINTU</div>
-          <div className="big" style={{ color: doorColor }}>{doorText}</div>
-          <div className="sub">{doorSub}</div>
+        <div className="bg-white border border-line rounded-[14px] p-[19px] shadow-[0_3px_10px_#1a31500a]">
+          <div className="text-[10px] font-extrabold text-muted tracking-[0.5px] uppercase">STATUS PINTU</div>
+          <div className="text-2xl md:text-[29px] font-extrabold my-[12px] mb-[7px]" style={{ color: doorColor }}>{doorText}</div>
+          <div className="text-[11px] text-muted mb-2">{doorSub}</div>
           <button
-            className={"btn" + (locked === false ? "" : " primary")}
+            className={`w-full mt-2.5 py-[9px] px-[11px] rounded-lg font-bold text-xs cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
+              locked === false ? "bg-white border border-[#c98420] text-[#815414]" : "bg-blue border border-blue text-white"
+            }`}
             type="button" disabled={pending} onClick={() => void toggleDoor()}
             style={{
               marginTop: 10, width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontWeight: 700,
@@ -140,37 +154,38 @@ export default function Dashboard() {
           >
             <span>{pending ? "Mengirim perintah…" : locked === false ? "Kunci Pintu" : "Buka Pintu"}</span>
           </button>
-          {cmdError && <div className="sub err" style={{ marginTop: 8 }}>{cmdError}</div>}
+          {cmdError && <div className="text-[11px] text-[#b54747] mt-2" style={{ marginTop: 8 }}>{cmdError}</div>}
         </div>
       </div>
 
-      <div className="grid2">
-        <div className="card">
-          <div className="sectiontitle">Tren konsumsi energi</div>
-          <div className="muted">Pemakaian per jam hari ini • kWh</div>
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.3fr)_minmax(300px,0.8fr)] gap-4">
+        <div className="bg-white border border-line rounded-[14px] p-[19px] shadow-[0_3px_10px_#1a31500a]">
+          <div className="text-base font-bold text-ink mb-[6px]">Tren konsumsi energi</div>
+          <div className="text-xs text-muted">Pemakaian per jam hari ini • kWh</div>
           <EnergyTrendChart data={chart.data ?? []} />
         </div>
-        <div className="card">
-          <div className="sectiontitle">Status Suhu & Akses Pintu</div>
-          <div className="rowline"><span className="muted">Suhu Ruang Saat Ini</span><span className="strong">{tempText}</span></div>
-          <div className="rowline"><span className="muted">Setpoint Suhu</span><span className="strong">{setpointText}</span></div>
-          <div className="rowline"><span className="muted">Smart Door Lock</span><span className="strong" style={{ color: doorColor }}>{doorText}</span></div>
+        <div className="bg-white border border-line rounded-[14px] p-[19px] shadow-[0_3px_10px_#1a31500a]">
+          <div className="text-base font-bold text-ink mb-[6px]">Status Suhu & Akses Pintu</div>
+          <div className="flex justify-between gap-3 py-[13px] border-b border-[#eef2f7] text-xs"><span className="text-muted">Suhu Ruang Saat Ini</span><span className="font-bold">{tempText}</span></div>
+          <div className="flex justify-between gap-3 py-[13px] border-b border-[#eef2f7] text-xs"><span className="text-muted">Setpoint Suhu</span><span className="font-bold">{setpointText}</span></div>
+          <div className="flex justify-between gap-3 py-[13px] text-xs"><span className="text-muted">Smart Door Lock</span><span className="font-bold" style={{ color: doorColor }}>{doorText}</span></div>
         </div>
       </div>
 
-      <div className="grid2" style={{ marginTop: 16 }}>
-        <div className="card">
-          <div className="sectiontitle">Jadwal ruang</div>
-          <div className="rowline"><span>Aktivitas kelas</span><span className="strong">{active ? `${hhmm(active.start_time).replace(":", ".")} – ${hhmm(active.end_time).replace(":", ".")}` : "Belum ada jadwal"}</span></div>
-          <div className="rowline"><span>Jadwal ON/OFF terkonfigurasi</span><span className="strong">{active ? `${hhmm(active.ac_on_time).replace(":", ".")} / ${hhmm(active.ac_off_time).replace(":", ".")}` : "—"}</span></div>
-          <div className="rowline"><span>Setpoint terjadwal</span><span className="strong">{active ? `${Number(active.setpoint_c)} °C` : "—"}</span></div>
-          <button className="btn" onClick={() => nav("/jadwal")}>Buka pengaturan jadwal</button>
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.3fr)_minmax(300px,0.8fr)] gap-4 mt-4" style={{ marginTop: 16 }}>
+        <div className="bg-white border border-line rounded-[14px] p-[19px] shadow-[0_3px_10px_#1a31500a]">
+          <div className="text-base font-bold text-ink mb-[6px]">Jadwal ruang</div>
+          <div className="flex justify-between gap-3 py-[13px] border-b border-[#eef2f7] text-xs"><span>Mata kuliah saat ini</span><span className="font-bold text-right">{kelas.sedang ? `${kelas.sedang.courses?.course_name ?? "-"} (${hhmm(kelas.sedang.start_time).replace(":", ".")} – ${hhmm(kelas.sedang.end_time).replace(":", ".")})` : "Tidak ada kelas"}</span></div>
+          <div className="flex justify-between gap-3 py-[13px] border-b border-[#eef2f7] text-xs"><span>Kelas berikutnya</span><span className="font-bold">{kelas.berikut ? `${kelas.berikut.courses?.course_name ?? "-"} • ${hhmm(kelas.berikut.start_time).replace(":", ".")}` : "—"}</span></div>
+          <div className="flex justify-between gap-3 py-[13px] border-b border-[#eef2f7] text-xs"><span>Jadwal AC ON/OFF</span><span className="font-bold">{hhmm(room.ac_on_time).replace(":", ".")} / {hhmm(room.ac_off_time).replace(":", ".")}</span></div>
+          <div className="flex justify-between gap-3 py-[13px] text-xs"><span>Setpoint AC</span><span className="font-bold">{Number(room.ac_setpoint_c)} °C</span></div>
+          <button className="mt-3 border border-[#ccd6e3] bg-white rounded-lg py-[9px] px-[11px] text-xs text-ink font-bold cursor-pointer hover:brightness-95 transition-all" onClick={() => nav("/jadwal")}>Buka pengaturan jadwal</button>
         </div>
-        <div className="card">
-          <div className="sectiontitle">Aktivitas terbaru</div>
-          {feed.length === 0 && <div className="rowline"><span className="muted">Belum ada aktivitas</span></div>}
+        <div className="bg-white border border-line rounded-[14px] p-[19px] shadow-[0_3px_10px_#1a31500a]">
+          <div className="text-base font-bold text-ink mb-[6px]">Aktivitas terbaru</div>
+          {feed.length === 0 && <div className="flex justify-between gap-3 py-[13px] text-xs"><span className="text-muted">Belum ada aktivitas</span></div>}
           {feed.map((r) => (
-            <div className="rowline" key={r.type}><span className="muted">{fmtClock(r.time)}</span><span>{feedText[r.type]}</span></div>
+            <div className="flex justify-between gap-3 py-[13px] border-b border-[#eef2f7] text-xs last:border-b-0" key={r.type}><span className="text-muted">{fmtClock(r.time)}</span><span>{feedText[r.type]}</span></div>
           ))}
         </div>
       </div>

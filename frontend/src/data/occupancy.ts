@@ -22,6 +22,18 @@ export async function fetchLatestOccupancy(roomId: number): Promise<OccupancyRow
   );
 }
 
+/** Riwayat deteksi langsung dari tabel occupancy (setiap 30 detik dari Node 1 CV); terbaru lebih dulu. */
+export async function fetchOccupancyHistory(roomId: number, limit = 50): Promise<OccupancyRow[]> {
+  return unwrap(
+    await supabase
+      .from("occupancy")
+      .select("detected_at,person_count,occupied,inference_fps,processing_ms")
+      .eq("room_id", roomId)
+      .order("detected_at", { ascending: false })
+      .limit(limit),
+  );
+}
+
 /** Nama model aktif untuk kolom Model pada tabel. Tabel: cv_models. */
 export async function fetchActiveModelName(): Promise<string> {
   const rows = unwrap(
