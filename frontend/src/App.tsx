@@ -7,6 +7,7 @@ import History from "./pages/History";
 import Login from "./pages/Login";
 import Occupancy from "./pages/Occupancy";
 import Schedule from "./pages/Schedule";
+import Users from "./pages/Users";
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
             <Route path="energi" element={<Energy />} />
             <Route path="jadwal" element={<Schedule />} />
             <Route path="riwayat" element={<History />} />
+            <Route path="pengguna" element={<Users />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

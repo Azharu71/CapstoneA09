@@ -1,9 +1,16 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { fetchRooms } from "../data/rooms";
+import InitRoom from "../pages/InitRoom";
 import type { Room } from "../types/database";
 import { useQuery } from "./useQuery";
 
-interface RoomState { rooms: Room[]; room: Room; setRoomId: (id: number) => void; reloadRooms: () => Promise<void> }
+interface RoomState {
+  rooms: Room[];
+  room: Room;
+  setRoomId: (id: number) => void;
+  reloadRooms: () => Promise<void>;
+}
+
 const Ctx = createContext<RoomState | null>(null);
 
 const CACHE_KEY_ROOMS = "cem_cached_rooms";
@@ -39,6 +46,12 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       try {
         localStorage.setItem(CACHE_KEY_ROOMS, JSON.stringify(q.data));
       } catch {}
+    } else if (q.data && q.data.length === 0) {
+      setCachedRooms([]);
+      try {
+        localStorage.removeItem(CACHE_KEY_ROOMS);
+        localStorage.removeItem(CACHE_KEY_SELECTED_ROOM);
+      } catch {}
     }
   }, [q.data]);
 
@@ -51,12 +64,37 @@ export function RoomProvider({ children }: { children: ReactNode }) {
 
   const rooms = q.data ?? cachedRooms;
   const room = rooms.find((r) => r.room_id === selected) ?? rooms[0];
-  const value = useMemo(() => (room ? { rooms, room, setRoomId, reloadRooms: q.reload } : null), [rooms, room, setRoomId, q.reload]);
+  const value = useMemo(
+    () => (room ? { rooms, room, setRoomId, reloadRooms: q.reload } : null),
+    [rooms, room, setRoomId, q.reload],
+  );
 
   // Hanya tampilkan pesan memuat ruang jika belum ada data sama sekali (baik dari query maupun dari cache)
-  if (q.loading && rooms.length === 0) return <div className="empty">Memuat ruang…</div>;
-  if (q.error && rooms.length === 0) return <div className="notice">Gagal memuat ruang: {q.error}</div>;
-  if (!value) return <div className="notice">Belum ada ruang. Jalankan seed.sql pada Supabase.</div>;
+  if (q.loading && rooms.length === 0) {
+    return (
+      <div className="min-h-screen grid place-items-center bg-bg text-muted text-xs">
+        <div className="flex flex-col items-center gap-2">
+          <div className="w-6 h-6 border-2 border-blue border-t-transparent rounded-full animate-spin" />
+          <span>Memuat data ruangan…</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Jika tidak ada ruang di database, tampilkan halaman inisialisasi / tambah ruang baru
+  if (!value || rooms.length === 0) {
+    return (
+      <InitRoom
+        onRoomCreated={async (newId) => {
+          await q.reload();
+          setRoomId(newId);
+        }}
+        initialError={q.error}
+        onRefresh={() => void q.reload()}
+      />
+    );
+  }
+
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   downloadCsv,
   EXPORT_LIMIT,
@@ -110,25 +110,6 @@ export default function History() {
   const head = table.data?.head ?? [];
   const S = summary.data;
 
-  const cards = useMemo(
-    () => [
-      {
-        label: "TOTAL ENERGI",
-        value: S ? `${S.energyKwh.toFixed(2)} kWh` : "—",
-      },
-      {
-        label: "DAYA PUNCAK (RATA-RATA JAM)",
-        value:
-          S?.peakPowerW != null
-            ? `${(S.peakPowerW / 1000).toFixed(2)} kW`
-            : "—",
-      },
-      { label: "OKUPANSI MAKSIMUM", value: S ? `${S.maxPeople} orang` : "—" },
-      { label: "JAM TERISI", value: S ? `${S.occupiedHours} jam` : "—" },
-    ],
-    [S],
-  );
-
   async function exportCsv() {
     setExporting(true);
     setExportMsg(null);
@@ -219,24 +200,11 @@ export default function History() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-[14px] mb-4">
-        {cards.map((c) => (
-          <div
-            className="bg-white border border-line rounded-[14px] p-[19px] shadow-[0_3px_10px_#1a31500a]"
-            key={c.label}
-          >
-            <div className="text-[10px] font-extrabold text-muted tracking-[0.5px] uppercase">
-              {c.label}
-            </div>
-            <div className="text-2xl font-extrabold my-[12px] mb-[7px] text-ink">
-              {c.value}
-            </div>
-          </div>
-        ))}
-      </div>
-
       <div className="bg-white border border-line rounded-[14px] p-[19px] shadow-[0_3px_10px_#1a31500a]">
-        <div className="flex gap-1 border-b border-line overflow-x-auto" role="tablist">
+        <div
+          className="flex gap-1 border-b border-line overflow-x-auto"
+          role="tablist"
+        >
           {TABS.filter((t) => !t.adminOnly || isAdmin).map((t) => (
             <button
               key={t.value}
@@ -333,7 +301,10 @@ export default function History() {
           </table>
         </div>
         {!table.loading && !rangeError && rows.length === 0 && (
-          <div id="historyEmpty" className="p-[35px] text-center text-muted text-[13px]">
+          <div
+            id="historyEmpty"
+            className="p-[35px] text-center text-muted text-[13px]"
+          >
             Tidak ada data untuk filter tersebut.
           </div>
         )}
@@ -357,7 +328,8 @@ export default function History() {
                 ← Sebelumnya
               </button>
               <span>
-                Halaman <strong className="text-ink">{currentPage}</strong> / {totalPages}
+                Halaman <strong className="text-ink">{currentPage}</strong> /{" "}
+                {totalPages}
               </span>
               <button
                 type="button"

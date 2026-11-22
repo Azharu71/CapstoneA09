@@ -27,4 +27,16 @@ export const CONFIG = {
 
   // Jumlah baris per sumber pada log Riwayat.
   historyLimit: 60,
+
+  // Pengaturan batas rentang waktu data riwayat & tren konsumsi energi
+  energyHistory: {
+    // Data mingguan: rentang waktu ke belakang dalam bulan (3 bulan)
+    weeklyMonthsBack: 3,
+    // Data bulanan: rentang waktu ke belakang dalam bulan (12 bulan = 1 tahun)
+    monthlyMonthsBack: 12,
+    // >>> UBAH MANUAL: Tanggal awal implementasi (format YYYY-MM-DD, mis. "2026-01-01").
+    // Bila diisi, data bulan tidak akan mengambil sebelum tanggal ini.
+    // Dibiarkan null agar otomatis mengambil maksimal 1 tahun ke belakang.
+    implementationStartDate: null as string | null,
+  },
 };

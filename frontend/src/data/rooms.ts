@@ -23,3 +23,8 @@ export async function addRoom(input: NewRoomInput): Promise<Room> {
 export async function saveRoomAc(roomId: number, input: RoomAcInput): Promise<void> {
   unwrap(await supabase.from("rooms").update(input).eq("room_id", roomId).select("room_id"));
 }
+
+/** Hapus satu ruang (khusus Administrator). Data terkait di tabel lain terhapus otomatis via ON DELETE CASCADE. */
+export async function deleteRoom(roomId: number): Promise<void> {
+  unwrap(await supabase.from("rooms").delete().eq("room_id", roomId).select("room_id"));
+}

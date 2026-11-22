@@ -1,6 +1,6 @@
-# Frontend Class Energy Monitor
+# Frontend SIRENA: Sistem Integrasi Ruang dan Energi Berkelanjutan
 
-Dashboard web Sistem Kelas Terintegrasi (CPE103): React + Vite + TypeScript + Tailwind + Recharts, data dari Supabase.
+Dashboard web SIRENA (Sistem Integrasi Ruang dan Energi Berkelanjutan) (CPE103): React + Vite + TypeScript + Tailwind + Recharts, data dari Supabase.
 Tampilan mengikuti `Prototipe_Dashboard_CPE103_Revisi.html`; datanya kini nyata (bukan simulasi).
 
 > **Status:** kode ditulis lengkap, sintaks seluruh 32 berkas TS/TSX sudah diperiksa, dan semua kelas CSS yang dipakai terdefinisi.
@@ -10,7 +10,7 @@ Tampilan mengikuti `Prototipe_Dashboard_CPE103_Revisi.html`; datanya kini nyata 
 
 ## 1. Prasyarat
 - Node.js 20 LTS atau lebih baru dan npm (`node -v`).
-- Database Supabase sudah disiapkan dengan migrasi `0001`, `0002`, `0003` dan `seed.sql` (dari paket `smart-classroom-kit`).
+- Database Supabase sudah disiapkan dengan migrasi `0001`, `0002`, `0003` dan `seed.sql` (dari paket `sirena-kit` / `smart-classroom-kit`).
 - Tiga akun Supabase Auth: admin, operator, bridge (lihat bagian 3).
 
 ## 2. Setup lokal
@@ -134,6 +134,8 @@ insert into device_state (room_id,key,value)
 | `components/Sidebar.tsx` | Menu dan status ONLINE/OFFLINE Node (dinamis) |
 | `components/EnergyTrendChart.tsx` | Grafik tren energi (Recharts) |
 | `pages/*` | Lima halaman sesuai prototipe, plus Login |
+
+Sesi aplikasi dibatasi maksimal 2 jam sejak login dan batas ini tidak diperpanjang oleh refresh access token. Batas disimpan di browser agar tetap diperiksa setelah browser dibuka kembali. Sesi lama yang belum memiliki batas ini akan diminta login ulang. Ini adalah batas sisi aplikasi pada Supabase Free; access token yang sudah terbit tetap berlaku sampai JWT kedaluwarsa.
 
 ## 9. Kesetiaan terhadap prototipe dan perbedaannya
 **Dijaga sama:** seluruh CSS prototipe disalin apa adanya ke `prototype.css`; kelas, struktur markup, label, urutan kartu, warna, dan nilai awal formulir mengikuti HTML. Tailwind dipasang **tanpa preflight** supaya reset bawaannya tidak mengubah tampilan.

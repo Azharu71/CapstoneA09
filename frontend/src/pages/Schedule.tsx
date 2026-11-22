@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { fetchCourses, ensureCourse } from "../data/courses";
-import { addRoom, saveRoomAc } from "../data/rooms";
+import { addRoom, deleteRoom, saveRoomAc } from "../data/rooms";
 import {
   deleteSchedule,
   fetchSchedules,
@@ -41,12 +41,50 @@ export default function Schedule() {
   const list = useQuery(() => fetchSchedules(room.room_id), [room.room_id]);
   const courses = useQuery(fetchCourses, []);
 
-  // ---------------- 1. Tambah ruang ----------------
+  // ---------------- 1. Tambah & Hapus ruang ----------------
   const [tampilRuang, setTampilRuang] = useState(false);
   const [kodeRuang, setKodeRuang] = useState("");
   const [namaRuang, setNamaRuang] = useState("");
   const [kapasitas, setKapasitas] = useState("40");
   const [pesanRuang, setPesanRuang] = useState<Pesan>(null);
+  const [busyRuang, setBusyRuang] = useState(false);
+
+  async function onHapusRuang() {
+    if (!isAdmin) {
+      return setPesanRuang({
+        text: "Gagal: hanya Administrator yang dapat menghapus ruangan.",
+        ok: false,
+      });
+    }
+
+    const konfirmasi = window.confirm(
+      `Apakah Anda yakin ingin menghapus ruang "${room.room_name}" (${room.room_code})?\n\nSemua jadwal mata kuliah, riwayat energi, dan telemetri perangkat untuk ruang ini akan ikut terhapus.`,
+    );
+    if (!konfirmasi) return;
+
+    setBusyRuang(true);
+    setPesanRuang(null);
+
+    try {
+      await deleteRoom(room.room_id);
+      const sisaRuang = rooms.filter((r) => r.room_id !== room.room_id);
+      if (sisaRuang[0]) {
+        setRoomId(sisaRuang[0].room_id);
+      }
+      await reloadRooms();
+      setPesanRuang({
+        text: `Ruang ${room.room_name} (${room.room_code}) berhasil dihapus.`,
+        ok: true,
+      });
+    } catch (err) {
+      setPesanRuang({
+        text: gagal(err),
+        ok: false,
+      });
+    } finally {
+      setBusyRuang(false);
+    }
+  }
 
   async function onTambahRuang(e: FormEvent) {
     e.preventDefault();
@@ -252,11 +290,7 @@ export default function Schedule() {
   return (
     <section id="schedule" className="block">
       <div className="flex flex-wrap justify-between items-end gap-[14px] mb-4">
-        <div>
-          <h2 className="text-[19px] font-bold text-ink m-0 mb-[5px]">
-            Konfigurasi jadwal kelas
-          </h2>
-        </div>
+        <div></div>
         <div className="flex items-center gap-2 flex-wrap">
           <select
             id="sRoom"
@@ -278,6 +312,16 @@ export default function Schedule() {
           >
             {tampilRuang ? "Batal tambah ruang" : "Tambah ruang"}
           </button>
+          {isAdmin && (
+            <button
+              className="border border-[#b54747] bg-white text-[#b54747] rounded-lg py-[9px] px-[11px] text-xs font-bold cursor-pointer hover:bg-[#fff0f0] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              type="button"
+              disabled={busyRuang}
+              onClick={() => void onHapusRuang()}
+            >
+              {busyRuang ? "Menghapus…" : "Hapus ruang"}
+            </button>
+          )}
         </div>
       </div>
       {(list.error || courses.error) && (
@@ -445,9 +489,7 @@ export default function Schedule() {
           </div>
           <div className="flex justify-between gap-3 py-[13px] border-b border-[#eef2f7] text-xs">
             <span>Ruang kelas</span>
-            <span className="font-bold">
-              {room.room_name} ({room.room_code})
-            </span>
+            <span className="font-bold">{room.room_name}</span>
           </div>
           <div className="flex justify-between gap-3 py-[13px] border-b border-[#eef2f7] text-xs">
             <span>Hari AC aktif</span>
@@ -456,7 +498,7 @@ export default function Schedule() {
           <div className="flex justify-between gap-3 py-[13px] border-b border-[#eef2f7] text-xs">
             <span>Jadwal AC ON/OFF</span>
             <span className="font-bold">
-              {hhmm(room.ac_on_time).replace(":", ".")} /{" "}
+              {hhmm(room.ac_on_time).replace(":", ".")} -{" "}
               {hhmm(room.ac_off_time).replace(":", ".")}
             </span>
           </div>
@@ -479,16 +521,6 @@ export default function Schedule() {
                 ? `${kelas.berikut.courses?.course_name ?? "-"} • ${hhmm(kelas.berikut.start_time).replace(":", ".")}`
                 : "—"}
             </span>
-          </div>
-          <div className="p-[13px] rounded-[10px] bg-[#e8f7f0] text-teal mt-[17px] text-xs">
-            AC ruang {room.room_name} aktif otomatis setiap{" "}
-            <strong>{daysLabel(room.ac_days)}</strong> pukul{" "}
-            <strong>
-              {hhmm(room.ac_on_time).replace(":", ".")} –{" "}
-              {hhmm(room.ac_off_time).replace(":", ".")}
-            </strong>{" "}
-            dengan suhu setpoint{" "}
-            <strong>{Number(room.ac_setpoint_c)} °C</strong>.
           </div>
         </div>
       </div>
@@ -582,9 +614,12 @@ export default function Schedule() {
               className="mb-[14px] mt-1.5"
               style={{ gridColumn: "1 / -1", marginTop: 6 }}
             >
-              <label className="block text-xs mb-[6px] font-semibold text-ink">
+              <label className="block text-xs font-semibold text-ink mb-0.5">
                 Kelengkapan Pouch Kelas
               </label>
+              <div className="text-[11px] text-muted mb-2">
+                Administrasi Peminjaman Peralatan Dosen
+              </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 mt-1.5">
                 {POUCH_ITEMS.map((p) => (
                   <label
@@ -643,21 +678,8 @@ export default function Schedule() {
           <div className="text-base font-bold text-ink mb-[6px]">
             Jadwal mata kuliah • {room.room_name}
           </div>
-          <div className="flex justify-between gap-3 py-[13px] border-b border-[#eef2f7] text-xs">
-            <span>Jadwal AC ON/OFF</span>
-            <span className="font-bold">
-              {hhmm(room.ac_on_time).replace(":", ".")} /{" "}
-              {hhmm(room.ac_off_time).replace(":", ".")}
-            </span>
-          </div>
-          <div className="flex justify-between gap-3 py-[13px] border-b border-[#eef2f7] text-xs">
-            <span>Setpoint AC</span>
-            <span className="font-bold">
-              {Number(room.ac_setpoint_c)} °C ({daysLabel(room.ac_days)})
-            </span>
-          </div>
           {(list.data ?? []).length === 0 && !list.loading && (
-            <div className="p-[35px] text-center text-muted text-[13px]">
+            <div className="p-[35px] text-center justify-center text-muted text-[13px]">
               Belum ada jadwal untuk ruang ini.
             </div>
           )}

@@ -15,6 +15,16 @@ export function addDays(dateStr: string, n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Tanggal awal (tanggal 1) N bulan lalu (format YYYY-MM-DD) berdasarkan zona waktu lokal. */
+export function monthsAgo(n: number, now: Date = new Date()): string {
+  const today = todayLocal(now);
+  const [y, m] = today.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 1 - n, 1));
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+  return `${year}-${month}-01`;
+}
+
 /** Hari ISO untuk tanggal YYYY-MM-DD (1 = Senin ... 7 = Minggu). */
 export function isoDow(dateStr: string): number {
   const g = new Date(dateStr + "T00:00:00Z").getUTCDay();
